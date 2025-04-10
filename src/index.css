@@ -1,0 +1,85 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 258 20% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 258 25% 15%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 258 25% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 260 70% 75%;
+    --primary-foreground: 258 20% 12%;
+
+    --secondary: 260 25% 25%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 258 15% 20%;
+    --muted-foreground: 260 10% 70%;
+
+    --accent: 260 50% 60%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 258 15% 20%;
+    --input: 258 15% 20%;
+    --ring: 260 70% 75%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 258 30% 10%;
+    --sidebar-foreground: 260 10% 90%;
+    --sidebar-primary: 260 70% 75%;
+    --sidebar-primary-foreground: 258 20% 12%;
+    --sidebar-accent: 258 20% 18%;
+    --sidebar-accent-foreground: 260 10% 90%;
+    --sidebar-border: 258 20% 18%;
+    --sidebar-ring: 260 70% 75%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+.glass-card {
+  @apply bg-card/80 backdrop-blur-sm border border-white/5;
+}
+
+.navbar-blur {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--accent));
+}
