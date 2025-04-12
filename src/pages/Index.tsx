@@ -5,8 +5,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Hero from "@/components/landing/Hero";
 import Features from "@/components/landing/Features";
+import { useAuth } from "@/providers/AuthProvider";
 
 const Index = () => {
+  const { user } = useAuth();
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -22,7 +25,9 @@ const Index = () => {
               Join thousands of others who are using Itracker to build better habits and achieve their goals.
             </p>
             <Button size="lg" asChild>
-              <Link to="/dashboard">Get Started</Link>
+              <Link to={user ? "/dashboard" : "/auth"}>
+                {user ? "Go to Dashboard" : "Get Started"}
+              </Link>
             </Button>
           </div>
         </section>
