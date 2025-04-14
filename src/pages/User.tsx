@@ -2,21 +2,72 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProfileCard from "@/components/user/ProfileCard";
 import { Settings, Bell, Shield, Award } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/providers/AuthProvider";
 
 const User = () => {
-  // Sample user data
-  const user = {
-    id: "1",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    joinDate: "April 2023",
-  };
+  const { user } = useAuth();
 
-  // Sample achievements data
+  const { data: profile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["userStats", user?.id],
+    queryFn: async () => {
+      if (!user) return { habits: 0, completions: 0 };
+      
+      // Get habits count
+      const { data: habits, error: habitsError } = await supabase
+        .from("habits")
+        .select("id", { count: "exact" })
+        .eq("user_id", user.id);
+      
+      if (habitsError) {
+        console.error("Error fetching habits:", habitsError);
+      }
+      
+      // Get completions count
+      const { data: completions, error: completionsError } = await supabase
+        .from("habit_logs")
+        .select("id", { count: "exact" })
+        .eq("user_id", user.id);
+      
+      if (completionsError) {
+        console.error("Error fetching completions:", completionsError);
+      }
+      
+      return {
+        habits: habits?.length || 0,
+        completions: completions?.length || 0
+      };
+    },
+    enabled: !!user,
+  });
+
+  // Sample achievements data (would be replaced with real data from backend)
   const achievements = [
     {
       id: "1",
@@ -40,6 +91,18 @@ const User = () => {
       icon: "🏆",
     },
   ];
+
+  if (isLoadingProfile || !profile) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-grow flex items-center justify-center">
+          <p>Loading profile...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -72,7 +135,7 @@ const User = () => {
             
             <TabsContent value="profile" className="mt-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <ProfileCard user={user} />
+                <ProfileCard profile={profile} />
                 
                 <div className="lg:col-span-2">
                   <Card>
@@ -81,15 +144,15 @@ const User = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                         <div className="p-4 rounded-lg bg-secondary">
                           <div className="text-sm text-muted-foreground mb-1">Active Habits</div>
-                          <div className="text-2xl font-bold">8</div>
+                          <div className="text-2xl font-bold">{stats?.habits || 0}</div>
                         </div>
                         <div className="p-4 rounded-lg bg-secondary">
                           <div className="text-sm text-muted-foreground mb-1">Total Completions</div>
-                          <div className="text-2xl font-bold">147</div>
+                          <div className="text-2xl font-bold">{stats?.completions || 0}</div>
                         </div>
                         <div className="p-4 rounded-lg bg-secondary">
                           <div className="text-sm text-muted-foreground mb-1">Achievements</div>
-                          <div className="text-2xl font-bold">12</div>
+                          <div className="text-2xl font-bold">{achievements.length}</div>
                         </div>
                       </div>
                       
@@ -115,7 +178,7 @@ const User = () => {
                     Configure your notification preferences
                   </p>
                   <p className="text-sm text-muted-foreground italic">
-                    Notification settings will be available once connected to Supabase
+                    Notification settings will be available in future updates
                   </p>
                 </CardContent>
               </Card>
@@ -129,7 +192,7 @@ const User = () => {
                     Manage your privacy and security settings
                   </p>
                   <p className="text-sm text-muted-foreground italic">
-                    Privacy settings will be available once connected to Supabase
+                    Privacy settings will be available in future updates
                   </p>
                 </CardContent>
               </Card>

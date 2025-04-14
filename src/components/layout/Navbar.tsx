@@ -1,132 +1,187 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, Layout, BarChart3 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Menu, X, User, Settings, LogOut, Shield } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const location = useLocation();
+  const { user, signOut } = useAuth();
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!user,
+  });
 
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
+  const { data: isAdmin } = useQuery({
+    queryKey: ["isAdmin", user?.id],
+    queryFn: async () => {
+      if (!user) return false;
+      
+      const { data, error } = await supabase
+        .rpc("has_role", { _user_id: user.id, _role: "admin" });
+      
+      if (error) {
+        console.error("Error checking admin role:", error);
+        return false;
+      }
+      
+      return data || false;
+    },
+    enabled: !!user,
+  });
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 navbar-blur border-b border-border">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-primary font-bold text-2xl">Itracker</span>
+    <header className="fixed w-full bg-background/90 backdrop-blur-sm z-50 border-b border-border">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          <Link to="/" className="text-xl font-bold">
+            Itracker
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
-            <div className="flex gap-6">
-              <NavLink to="/" isActive={isActive("/")}>
-                Home
-              </NavLink>
-              <NavLink to="/dashboard" isActive={isActive("/dashboard")}>
+          <nav className="hidden md:flex space-x-8 items-center">
+            <Link to="/" className="text-muted-foreground hover:text-foreground">
+              Home
+            </Link>
+            {user && (
+              <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
                 Dashboard
-              </NavLink>
-              <NavLink to="/user" isActive={isActive("/user")}>
+              </Link>
+            )}
+            {!user ? (
+              <Button asChild>
+                <Link to="/auth">Login</Link>
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="outline-none">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={profile?.avatar_url || ""} alt={profile?.full_name || user.email || ""} />
+                      <AvatarFallback className="bg-primary/20 text-primary">
+                        {profile?.full_name?.[0] || user.email?.[0] || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>
+                    {profile?.full_name || user.email}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/user" className="flex items-center cursor-pointer">
+                      <User className="mr-2 h-4 w-4" /> Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard" className="flex items-center cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" /> Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center cursor-pointer">
+                        <Shield className="mr-2 h-4 w-4" /> Admin
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </nav>
+
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMenuOpen ? <X /> : <Menu />}
+            </button>
+          </div>
+        </div>
+
+        {isMenuOpen && (
+          <div className="md:hidden py-4 space-y-4">
+            <Link
+              to="/"
+              className="block text-muted-foreground hover:text-foreground"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Home
+            </Link>
+            {user && (
+              <Link
+                to="/dashboard"
+                className="block text-muted-foreground hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+            )}
+            {user && (
+              <Link
+                to="/user"
+                className="block text-muted-foreground hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
                 Profile
-              </NavLink>
-              <NavLink to="/admin" isActive={isActive("/admin")}>
+              </Link>
+            )}
+            {isAdmin && user && (
+              <Link
+                to="/admin"
+                className="block text-muted-foreground hover:text-foreground"
+                onClick={() => setIsMenuOpen(false)}
+              >
                 Admin
-              </NavLink>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm">
-                Login
+              </Link>
+            )}
+            {!user ? (
+              <Button asChild onClick={() => setIsMenuOpen(false)}>
+                <Link to="/auth">Login</Link>
               </Button>
-              <Button size="sm">Sign Up</Button>
-            </div>
+            ) : (
+              <Button variant="outline" onClick={signOut}>
+                Logout
+              </Button>
+            )}
           </div>
-
-          {/* Mobile menu button */}
-          <button className="md:hidden" onClick={toggleMenu}>
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
+        )}
       </div>
-
-      {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-card/95 backdrop-blur-lg p-4 border-b border-border animate-fade-in">
-          <div className="flex flex-col gap-4">
-            <MobileNavLink to="/" label="Home" icon={<Layout size={18} />} onClick={toggleMenu} />
-            <MobileNavLink to="/dashboard" label="Dashboard" icon={<BarChart3 size={18} />} onClick={toggleMenu} />
-            <MobileNavLink to="/user" label="Profile" icon={<User size={18} />} onClick={toggleMenu} />
-            <MobileNavLink to="/admin" label="Admin" icon={<BarChart3 size={18} />} onClick={toggleMenu} />
-            <div className="flex gap-3 mt-2">
-              <Button variant="outline" size="sm" className="flex-1">
-                Login
-              </Button>
-              <Button size="sm" className="flex-1">
-                Sign Up
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </nav>
-  );
-};
-
-const NavLink = ({ 
-  to, 
-  isActive, 
-  children 
-}: { 
-  to: string; 
-  isActive: boolean; 
-  children: React.ReactNode 
-}) => {
-  return (
-    <Link
-      to={to}
-      className={`relative text-sm font-medium transition-colors hover:text-primary ${
-        isActive ? "text-primary" : "text-foreground/80"
-      }`}
-    >
-      {children}
-      {isActive && (
-        <span className="absolute left-0 -bottom-[21px] h-[2px] w-full bg-primary" />
-      )}
-    </Link>
-  );
-};
-
-const MobileNavLink = ({ 
-  to, 
-  label, 
-  icon, 
-  onClick 
-}: { 
-  to: string; 
-  label: string; 
-  icon: React.ReactNode; 
-  onClick: () => void;
-}) => {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-
-  return (
-    <Link
-      to={to}
-      className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
-        isActive ? "bg-secondary text-primary" : "text-foreground/80 hover:bg-secondary/50"
-      }`}
-      onClick={onClick}
-    >
-      {icon}
-      <span>{label}</span>
-    </Link>
+    </header>
   );
 };
 
