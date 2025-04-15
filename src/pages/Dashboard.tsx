@@ -1,67 +1,49 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, BarChart2, CalendarDays, ListTodo } from "lucide-react";
+import { BarChart2, CalendarDays, ListTodo } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import HabitCard from "@/components/dashboard/HabitCard";
 import ProgressChart from "@/components/dashboard/ProgressChart";
+import AddHabitDialog from "@/components/dashboard/AddHabitDialog";
+import { useHabits } from "@/hooks/useHabits";
+import { toast } from "sonner";
+import { useAuth } from "@/providers/AuthProvider";
 
 const Dashboard = () => {
-  // Sample data for demonstration
-  const [habits, setHabits] = useState([
-    {
-      id: "1",
-      title: "Morning Meditation",
-      category: "Wellness",
-      streak: 5,
-      completedToday: true,
-      progress: 70,
-    },
-    {
-      id: "2",
-      title: "Read for 30 minutes",
-      category: "Learning",
-      streak: 12,
-      completedToday: false,
-      progress: 60,
-    },
-    {
-      id: "3",
-      title: "Workout",
-      category: "Fitness",
-      streak: 3,
-      completedToday: false,
-      progress: 30,
-    },
-    {
-      id: "4",
-      title: "Drink 8 glasses of water",
-      category: "Health",
-      streak: 7,
-      completedToday: true,
-      progress: 80,
-    },
-  ]);
+  const { user } = useAuth();
+  const { 
+    habits, 
+    isLoading, 
+    error, 
+    fetchHabits,
+    weeklyProgressData,
+    categoryData
+  } = useHabits();
 
-  const weeklyProgressData = [
-    { name: "Mon", completed: 3, total: 4 },
-    { name: "Tue", completed: 4, total: 4 },
-    { name: "Wed", completed: 2, total: 4 },
-    { name: "Thu", completed: 3, total: 4 },
-    { name: "Fri", completed: 3, total: 4 },
-    { name: "Sat", completed: 1, total: 4 },
-    { name: "Sun", completed: 0, total: 4 },
-  ];
+  const totalCompletedToday = habits.filter(habit => habit.completedToday).length;
+  const completionRate = habits.length > 0 
+    ? Math.round((totalCompletedToday / habits.length) * 100) 
+    : 0;
+  
+  const maxStreak = habits.length > 0 
+    ? Math.max(...habits.map(habit => habit.streak)) 
+    : 0;
 
-  const categoryData = [
-    { name: "Fitness", completed: 10, total: 12 },
-    { name: "Health", completed: 15, total: 20 },
-    { name: "Learning", completed: 8, total: 10 },
-    { name: "Wellness", completed: 12, total: 15 },
-  ];
+  useEffect(() => {
+    if (error) {
+      toast.error(`Error loading habits: ${error}`);
+    }
+  }, [error]);
+
+  const handleDeleteHabit = (id: string) => {
+    // The actual delete happens in the HabitCard component
+    // Here we just refresh the list
+    fetchHabits();
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -76,9 +58,7 @@ const Dashboard = () => {
                 Track your habits and monitor your progress
               </p>
             </div>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Add New Habit
-            </Button>
+            <AddHabitDialog onHabitAdded={fetchHabits} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -99,7 +79,7 @@ const Dashboard = () => {
                   <BarChart2 className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">75%</div>
+                  <div className="text-2xl font-bold">{completionRate}%</div>
                   <div className="text-sm text-muted-foreground">Completion Rate</div>
                 </div>
               </CardContent>
@@ -110,7 +90,7 @@ const Dashboard = () => {
                   <CalendarDays className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold">12</div>
+                  <div className="text-2xl font-bold">{maxStreak}</div>
                   <div className="text-sm text-muted-foreground">Day Streak</div>
                 </div>
               </CardContent>
@@ -123,11 +103,25 @@ const Dashboard = () => {
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
             <TabsContent value="habits" className="mt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {habits.map((habit) => (
-                  <HabitCard key={habit.id} {...habit} />
-                ))}
-              </div>
+              {isLoading ? (
+                <div className="text-center py-8">Loading habits...</div>
+              ) : habits.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">You don't have any habits yet.</p>
+                  <AddHabitDialog onHabitAdded={fetchHabits} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {habits.map((habit) => (
+                    <HabitCard 
+                      key={habit.id} 
+                      {...habit} 
+                      onDelete={handleDeleteHabit}
+                      onUpdate={fetchHabits}
+                    />
+                  ))}
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="analytics" className="mt-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
