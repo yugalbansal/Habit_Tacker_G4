@@ -3,7 +3,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit, Trash2, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 type User = {
   id: string;
@@ -16,11 +18,18 @@ type User = {
 
 type UserTableProps = {
   users: User[];
+  refetchUsers?: () => void;
 };
 
-const UserTable = ({ users: initialUsers }: UserTableProps) => {
+const UserTable = ({ users: initialUsers, refetchUsers }: UserTableProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState<User[]>(initialUsers);
+
+  // Update local state when initialUsers changes
+  useEffect(() => {
+    console.log("Users updated:", initialUsers.length);
+    setUsers(initialUsers);
+  }, [initialUsers]);
 
   const filteredUsers = users.filter(
     (user) =>
@@ -28,8 +37,30 @@ const UserTable = ({ users: initialUsers }: UserTableProps) => {
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDeleteUser = (id: string) => {
-    setUsers(users.filter((user) => user.id !== id));
+  const handleDeleteUser = async (id: string) => {
+    try {
+      // Only delete from local state for display purposes
+      // In a real app, you might want to disable the user in Supabase instead
+      setUsers(users.filter((user) => user.id !== id));
+      
+      // Show a success toast
+      toast({
+        title: "User deleted",
+        description: "The user has been removed from the list.",
+      });
+      
+      // Refetch users if the function is provided
+      if (refetchUsers) {
+        refetchUsers();
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: "Error",
+        description: "Could not delete user. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

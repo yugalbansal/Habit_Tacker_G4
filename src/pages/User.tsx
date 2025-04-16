@@ -67,30 +67,63 @@ const User = () => {
     enabled: !!user,
   });
 
-  // Sample achievements data (would be replaced with real data from backend)
-  const achievements = [
-    {
-      id: "1",
-      title: "Early Bird",
-      description: "Completed 10 morning habits",
-      date: "Mar 15, 2023",
-      icon: "🌅",
+  // Fetch user achievements - fixed to use join syntax
+  const { data: userAchievements = [], isLoading: isLoadingAchievements } = useQuery({
+    queryKey: ["userAchievements", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from("user_achievements")
+        .select(`
+          id,
+          earned_at,
+          achievement:achievement_id (
+            id,
+            title,
+            description,
+            icon
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("earned_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching user achievements:", error);
+        return [];
+      }
+      
+      return data.map(item => ({
+        id: item.id,
+        title: item.achievement.title,
+        description: item.achievement.description,
+        date: new Date(item.earned_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }),
+        icon: item.achievement.icon,
+      }));
     },
-    {
-      id: "2",
-      title: "Streak Master",
-      description: "Maintained a 30-day streak",
-      date: "Feb 27, 2023",
-      icon: "🔥",
+    enabled: !!user,
+  });
+
+  // Fetch available achievements
+  const { data: allAchievements = [] } = useQuery({
+    queryKey: ["allAchievements"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("achievements")
+        .select("*");
+      
+      if (error) {
+        console.error("Error fetching all achievements:", error);
+        return [];
+      }
+      
+      return data;
     },
-    {
-      id: "3",
-      title: "Goal Crusher",
-      description: "Completed all goals for a month",
-      date: "Jan 31, 2023",
-      icon: "🏆",
-    },
-  ];
+  });
 
   if (isLoadingProfile || !profile) {
     return (
@@ -130,6 +163,9 @@ const User = () => {
               </TabsTrigger>
               <TabsTrigger value="achievements" className="flex items-center gap-2">
                 <Award className="h-4 w-4" /> Achievements
+                {userAchievements.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{userAchievements.length}</Badge>
+                )}
               </TabsTrigger>
             </TabsList>
             
@@ -152,7 +188,7 @@ const User = () => {
                         </div>
                         <div className="p-4 rounded-lg bg-secondary">
                           <div className="text-sm text-muted-foreground mb-1">Achievements</div>
-                          <div className="text-2xl font-bold">{achievements.length}</div>
+                          <div className="text-2xl font-bold">{userAchievements.length}</div>
                         </div>
                       </div>
                       
@@ -199,26 +235,71 @@ const User = () => {
             </TabsContent>
             
             <TabsContent value="achievements" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {achievements.map((achievement) => (
-                  <Card key={achievement.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="text-4xl">{achievement.icon}</div>
-                        <div>
-                          <h3 className="font-medium">{achievement.title}</h3>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {achievement.description}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Earned on {achievement.date}
-                          </p>
-                        </div>
+              {isLoadingAchievements ? (
+                <div className="flex items-center justify-center p-8">
+                  <p>Loading achievements...</p>
+                </div>
+              ) : (
+                <>
+                  {userAchievements.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {userAchievements.map((achievement) => (
+                        <Card key={achievement.id}>
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="text-4xl">{achievement.icon}</div>
+                              <div>
+                                <h3 className="font-medium">{achievement.title}</h3>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {achievement.description}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Earned on {achievement.date}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-8">
+                      <div className="mb-4">
+                        <Award className="mx-auto h-12 w-12 text-muted-foreground" />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      <h3 className="text-lg font-medium mb-2">No Achievements Yet</h3>
+                      <p className="text-muted-foreground max-w-md mx-auto">
+                        Complete your habits consistently to earn achievements. There are {allAchievements.length} achievements waiting for you!
+                      </p>
+                    </div>
+                  )}
+                  
+                  {allAchievements.length > 0 && (
+                    <div className="mt-8">
+                      <h3 className="text-lg font-medium mb-4">Available Achievements</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {allAchievements.map(achievement => {
+                          const isEarned = userAchievements.some(ua => ua.title === achievement.title);
+                          return (
+                            <div key={achievement.id} className={`p-4 rounded-lg border ${isEarned ? 'border-primary/50 bg-primary/5' : 'border-border'}`}>
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl opacity-70">{achievement.icon}</div>
+                                <div>
+                                  <h4 className="font-medium">{achievement.title}</h4>
+                                  <p className="text-sm text-muted-foreground">{achievement.description}</p>
+                                </div>
+                              </div>
+                              {isEarned && (
+                                <Badge className="mt-2" variant="outline">Earned</Badge>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </TabsContent>
           </Tabs>
         </div>

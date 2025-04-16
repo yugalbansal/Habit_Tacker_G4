@@ -1,49 +1,152 @@
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import UserTable from "@/components/admin/UserTable";
-import { Users, BarChart3, Settings, Database } from "lucide-react";
+import { Users, BarChart3, Settings, Award } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import AdminDashboard from "@/components/admin/Dashboard";
+import Statistics from "@/components/admin/Statistics";
+import AchievementsManager from "@/components/admin/AchievementsManager";
+import SettingsPanel from "@/components/admin/SettingsPanel";
+import { Achievement } from "@/types/achievement";
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  status: "active" | "inactive";
+  joinDate: string;
+  habitsCount: number;
+};
 
 const Admin = () => {
-  // Sample users data for demonstration
-  const users = [
-    {
-      id: "1",
-      name: "Jane Smith",
-      email: "jane.smith@example.com",
-      status: "active" as const,
-      joinDate: "Apr 10, 2023",
-      habitsCount: 8,
+  // Fetch users data from Supabase
+  const { data: users = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery({
+    queryKey: ["adminUsers"],
+    queryFn: async () => {
+      // Get all profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*");
+      
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        return [];
+      }
+
+      console.log("Fetched profiles:", profiles.length);
+      
+      // For each profile, get the user status (active/inactive) based on last sign in
+      const enhancedProfiles = await Promise.all(
+        profiles.map(async (profile) => {
+          // Get habits count for this user
+          const { count: habitsCount, error: habitsError } = await supabase
+            .from("habits")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", profile.id);
+          
+          if (habitsError) {
+            console.error(`Error fetching habits for user ${profile.id}:`, habitsError);
+          }
+          
+          // Using updated_at from profiles as a proxy for "last active"
+          const isActive = new Date(profile.updated_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          
+          return {
+            id: profile.id,
+            name: profile.full_name || "Unnamed User",
+            email: `User ${profile.id.substring(0, 8)}`, // We can't get email directly from profiles
+            status: isActive ? "active" as const : "inactive" as const,
+            joinDate: new Date(profile.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            }),
+            habitsCount: habitsCount || 0
+          };
+        })
+      );
+      
+      console.log("Enhanced profiles:", enhancedProfiles.length);
+      return enhancedProfiles;
     },
-    {
-      id: "2",
-      name: "John Doe",
-      email: "john.doe@example.com",
-      status: "active" as const,
-      joinDate: "Feb 15, 2023",
-      habitsCount: 5,
-    },
-    {
-      id: "3",
-      name: "Alex Johnson",
-      email: "alex.johnson@example.com",
-      status: "inactive" as const,
-      joinDate: "Jan 7, 2023",
-      habitsCount: 0,
-    },
-    {
-      id: "4",
-      name: "Sarah Williams",
-      email: "sarah.williams@example.com",
-      status: "active" as const,
-      joinDate: "Mar 22, 2023",
-      habitsCount: 12,
-    },
-  ];
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true
+  });
+
+  // Fetch statistics from Supabase
+  const { data: stats = { totalUsers: 0, activeUsers: 0, totalHabits: 0, totalCompletions: 0 }, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["adminStats"],
+    queryFn: async () => {
+      // Count total users
+      const { count: totalUsers, error: usersError } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact" });
+      
+      if (usersError) {
+        console.error("Error counting users:", usersError);
+      }
+      
+      // Count active users (updated in the last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { count: activeUsers, error: activeUsersError } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact" })
+        .gte("updated_at", thirtyDaysAgo.toISOString());
+      
+      if (activeUsersError) {
+        console.error("Error counting active users:", activeUsersError);
+      }
+      
+      // Count total habits
+      const { count: totalHabits, error: habitsError } = await supabase
+        .from("habits")
+        .select("*", { count: "exact" });
+      
+      if (habitsError) {
+        console.error("Error counting habits:", habitsError);
+      }
+      
+      // Count total completions
+      const { count: totalCompletions, error: completionsError } = await supabase
+        .from("habit_logs")
+        .select("*", { count: "exact" });
+      
+      if (completionsError) {
+        console.error("Error counting completions:", completionsError);
+      }
+      
+      return {
+        totalUsers: totalUsers || 0,
+        activeUsers: activeUsers || 0,
+        totalHabits: totalHabits || 0,
+        totalCompletions: totalCompletions || 0
+      };
+    }
+  });
+
+  // Fetch achievements from Supabase
+  const { data: achievements = [], isLoading: isLoadingAchievements, refetch: refetchAchievements } = useQuery({
+    queryKey: ["adminAchievements"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("achievements")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching achievements:", error);
+        return [];
+      }
+      
+      return data as Achievement[];
+    }
+  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -58,48 +161,7 @@ const Admin = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Users className="h-8 w-8 text-primary mb-2" />
-                  <div className="text-2xl font-bold">{users.length}</div>
-                  <p className="text-sm text-muted-foreground">Total Users</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Badge className="mb-2" variant="outline">
-                    Active
-                  </Badge>
-                  <div className="text-2xl font-bold">
-                    {users.filter((u) => u.status === "active").length}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Active Users</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <BarChart3 className="h-8 w-8 text-primary mb-2" />
-                  <div className="text-2xl font-bold">25</div>
-                  <p className="text-sm text-muted-foreground">Total Habits</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Database className="h-8 w-8 text-primary mb-2" />
-                  <div className="text-2xl font-bold">142</div>
-                  <p className="text-sm text-muted-foreground">Completions</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <AdminDashboard stats={stats} isLoading={isLoadingStats} />
 
           <Tabs defaultValue="users" className="mb-8">
             <TabsList>
@@ -109,51 +171,38 @@ const Admin = () => {
               <TabsTrigger value="statistics" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" /> Statistics
               </TabsTrigger>
+              <TabsTrigger value="achievements" className="flex items-center gap-2">
+                <Award className="h-4 w-4" /> Achievements
+              </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" /> Settings
               </TabsTrigger>
             </TabsList>
             
             <TabsContent value="users" className="mt-6">
-              <UserTable users={users} />
+              {isLoadingUsers ? (
+                <div className="flex items-center justify-center p-8">
+                  <p>Loading users...</p>
+                </div>
+              ) : (
+                <UserTable users={users} refetchUsers={refetchUsers} />
+              )}
             </TabsContent>
             
             <TabsContent value="statistics" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Application Statistics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    View detailed statistics about application usage
-                  </p>
-                  <div className="flex flex-col items-center justify-center p-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Statistics will be available once connected to Supabase
-                    </p>
-                    <Button className="mt-4">Connect Supabase</Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <Statistics stats={stats} isLoading={isLoadingStats} />
+            </TabsContent>
+            
+            <TabsContent value="achievements" className="mt-6">
+              <AchievementsManager 
+                achievements={achievements} 
+                isLoading={isLoadingAchievements}
+                refetchAchievements={refetchAchievements}
+              />
             </TabsContent>
             
             <TabsContent value="settings" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Admin Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    Configure global application settings
-                  </p>
-                  <div className="flex flex-col items-center justify-center p-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      Admin settings will be available once connected to Supabase
-                    </p>
-                    <Button className="mt-4">Connect Supabase</Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <SettingsPanel />
             </TabsContent>
           </Tabs>
         </div>

@@ -8,9 +8,9 @@ const Hero = () => {
     <section className="min-h-[90vh] flex flex-col justify-center relative overflow-hidden pt-20">
       <div className="container px-4 mx-auto relative z-10">
         <div className="max-w-3xl mx-auto text-center">
-          {/* <div className="inline-flex items-center px-3 py-1 mb-6 text-sm rounded-full bg-muted/50 border border-border backdrop-blur-sm">
+          <div className="inline-flex items-center px-3 py-1 mb-6 text-sm rounded-full bg-muted/50 border border-border backdrop-blur-sm">
             <span className="text-primary font-medium">New Version Available</span>
-          </div> */}
+          </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-primary/80 bg-clip-text text-transparent">
             Track Habits, Achieve Goals
           </h1>
@@ -24,7 +24,7 @@ const Hero = () => {
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/auth">Sign In</Link>
+              <Link to="/login">Sign In</Link>
             </Button>
           </div>
         </div>
