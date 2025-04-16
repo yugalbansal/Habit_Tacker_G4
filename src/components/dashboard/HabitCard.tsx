@@ -10,37 +10,114 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 type HabitCardProps = {
   id: string;
   title: string;
   category: string;
+  description?: string;
   streak: number;
   completedToday: boolean;
   progress: number;
+  onDelete: (id: string) => void;
+  onUpdate: () => void;
 };
 
 const HabitCard = ({
   id,
   title,
   category,
+  description,
   streak,
   completedToday,
   progress,
+  onDelete,
+  onUpdate,
 }: HabitCardProps) => {
   const [isCompleted, setIsCompleted] = useState(completedToday);
   const [currentStreak, setCurrentStreak] = useState(streak);
   const [currentProgress, setCurrentProgress] = useState(progress);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleComplete = () => {
-    if (!isCompleted) {
-      setIsCompleted(true);
-      setCurrentStreak(currentStreak + 1);
-      setCurrentProgress(Math.min(100, currentProgress + 10));
-    } else {
-      setIsCompleted(false);
-      setCurrentStreak(Math.max(0, currentStreak - 1));
-      setCurrentProgress(Math.max(0, currentProgress - 10));
+  const handleComplete = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      if (!isCompleted) {
+        // Mark as completed
+        const { error } = await supabase.from('habit_logs').insert({
+          habit_id: id,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          completed_date: today
+        });
+        
+        if (error) throw error;
+        
+        setIsCompleted(true);
+        setCurrentStreak(currentStreak + 1);
+        setCurrentProgress(Math.min(100, currentProgress + 10));
+        toast.success("Habit completed for today!");
+      } else {
+        // Remove completion
+        const { error } = await supabase.from('habit_logs')
+          .delete()
+          .match({ 
+            habit_id: id, 
+            completed_date: today 
+          });
+        
+        if (error) throw error;
+        
+        setIsCompleted(false);
+        setCurrentStreak(Math.max(0, currentStreak - 1));
+        setCurrentProgress(Math.max(0, currentProgress - 10));
+        toast.info("Habit marked as incomplete");
+      }
+      
+      onUpdate();
+    } catch (error: any) {
+      toast.error(`Error updating habit: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteHabit = async () => {
+    if (isDeleting) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from('habits')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast.success("Habit deleted successfully");
+      onDelete(id);
+    } catch (error: any) {
+      toast.error(`Error deleting habit: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -61,12 +138,36 @@ const HabitCard = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem className="cursor-pointer flex items-center gap-2">
+            <DropdownMenuItem disabled className="cursor-pointer flex items-center gap-2">
               <Edit className="h-4 w-4" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive">
-              <Trash2 className="h-4 w-4" /> Delete
-            </DropdownMenuItem>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem
+                  className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the habit and all associated data. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteHabit}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
@@ -90,6 +191,7 @@ const HabitCard = ({
           }`}
           variant="outline"
           size="sm"
+          disabled={isSubmitting}
         >
           {isCompleted ? (
             <>
