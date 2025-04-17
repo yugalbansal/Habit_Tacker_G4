@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Edit2, Save, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/providers/AuthProvider";
 
 type ProfileCardProps = {
@@ -23,6 +23,7 @@ type ProfileCardProps = {
 const ProfileCard = ({ profile }: ProfileCardProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [updatedProfile, setUpdatedProfile] = useState({
     full_name: profile.full_name || "",
@@ -30,6 +31,7 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -41,7 +43,17 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setAvatarFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      
+      // Create a preview URL for the selected image
+      const fileReader = new FileReader();
+      fileReader.onload = () => {
+        if (typeof fileReader.result === 'string') {
+          setPreviewUrl(fileReader.result);
+        }
+      };
+      fileReader.readAsDataURL(file);
     }
   };
 
@@ -54,20 +66,38 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
 
       // Upload new avatar if selected
       if (avatarFile) {
+        // Upload to avatars bucket
         const fileExt = avatarFile.name.split('.').pop();
-        const filePath = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
+        // First, remove old avatar if it exists and contains the user ID
+        // This prevents storage bloat with unused avatars
+        if (profile.avatar_url) {
+          const oldAvatarPath = profile.avatar_url.split('/').pop();
+          if (oldAvatarPath && oldAvatarPath.startsWith(user.id)) {
+            const { error: removeError } = await supabase.storage
+              .from('avatars')
+              .remove([oldAvatarPath]);
+            
+            if (removeError) {
+              console.warn("Error removing old avatar:", removeError);
+            }
+          }
+        }
+        
+        // Upload new avatar
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(filePath, avatarFile);
+          .upload(fileName, avatarFile);
           
         if (uploadError) {
           throw uploadError;
         }
         
+        // Get the public URL
         const { data } = supabase.storage
           .from('avatars')
-          .getPublicUrl(filePath);
+          .getPublicUrl(fileName);
           
         avatarUrl = data.publicUrl;
       }
@@ -91,6 +121,9 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
         description: "Your profile has been updated successfully."
       });
       
+      // Clean up preview URL
+      setPreviewUrl(null);
+      
       // Invalidate profile query
       queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
       
@@ -98,12 +131,19 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
     } catch (error: any) {
       toast({
         title: "Error updating profile",
-        description: error.message,
+        description: error.message || "Failed to update profile",
         variant: "destructive"
       });
+      console.error("Profile update error:", error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getDisplayImage = () => {
+    if (previewUrl) return previewUrl;
+    if (profile.avatar_url) return profile.avatar_url;
+    return "";
   };
 
   return (
@@ -120,11 +160,7 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
         </Button>
         <div className="flex flex-col items-center">
           <Avatar className="h-24 w-24 mb-4">
-            {avatarFile ? (
-              <AvatarImage src={URL.createObjectURL(avatarFile)} alt={updatedProfile.full_name || user?.email || ""} />
-            ) : (
-              <AvatarImage src={profile.avatar_url || ""} alt={profile.full_name || user?.email || ""} />
-            )}
+            <AvatarImage src={getDisplayImage()} alt={profile.full_name || user?.email || ""} />
             <AvatarFallback className="text-xl bg-primary/20 text-primary">
               {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || "U"}
             </AvatarFallback>
