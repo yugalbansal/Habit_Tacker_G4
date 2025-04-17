@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit, Trash2, Search } from "lucide-react";
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { adminSupabase } from "@/integrations/supabase/adminClient";
 import { toast } from "@/components/ui/use-toast";
 
 type User = {
@@ -39,14 +39,21 @@ const UserTable = ({ users: initialUsers, refetchUsers }: UserTableProps) => {
 
   const handleDeleteUser = async (id: string) => {
     try {
-      // Only delete from local state for display purposes
-      // In a real app, you might want to disable the user in Supabase instead
+      // Use adminSupabase to delete the user (this would bypass RLS)
+      // Note: In a real application, you might want to deactivate rather than delete
+      const { error } = await adminSupabase.auth.admin.deleteUser(id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state for immediate UI feedback
       setUsers(users.filter((user) => user.id !== id));
       
       // Show a success toast
       toast({
         title: "User deleted",
-        description: "The user has been removed from the list.",
+        description: "The user has been removed from the system.",
       });
       
       // Refetch users if the function is provided
