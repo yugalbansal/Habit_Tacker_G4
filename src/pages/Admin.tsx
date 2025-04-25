@@ -4,7 +4,6 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import UserTable from "@/components/admin/UserTable";
 import { Users, BarChart3, Settings, Award } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { adminSupabase } from "@/integrations/supabase/adminClient";
 import { useQuery } from "@tanstack/react-query";
 import AdminDashboard from "@/components/admin/Dashboard";
@@ -23,26 +22,23 @@ type User = {
 };
 
 const Admin = () => {
-  // Fetch users data using adminSupabase with service key (bypasses RLS)
   const { data: users = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["adminUsers"],
     queryFn: async () => {
       try {
-        // Get all auth users directly using the service key client
-        const { data: authUsers, error: authUsersError } = await adminSupabase.auth.admin.listUsers();
+        const { data: { users: authUsers }, error: authUsersError } = await adminSupabase.auth.admin.listUsers();
         
         if (authUsersError) {
           console.error("Error fetching auth users:", authUsersError);
           return [];
         }
         
-        console.log("Fetched auth users:", authUsers?.users?.length);
+        console.log("Fetched auth users:", authUsers?.length);
         
-        if (!authUsers?.users?.length) {
+        if (!authUsers?.length) {
           return [];
         }
         
-        // Get all profiles to get names
         const { data: profiles, error: profilesError } = await adminSupabase
           .from("profiles")
           .select("*");
@@ -53,18 +49,15 @@ const Admin = () => {
         
         console.log("Fetched profiles:", profiles?.length);
         
-        // Create a map of profiles by id for faster lookup
         const profilesMap = (profiles || []).reduce((acc, profile) => {
           acc[profile.id] = profile;
           return acc;
         }, {});
         
-        // For each auth user, get the profile data and habits count
         const enhancedUsers = await Promise.all(
-          authUsers.users.map(async (user) => {
+          authUsers.map(async (user) => {
             const profile = profilesMap[user.id];
             
-            // Get habits count for this user
             const { count: habitsCount, error: habitsError } = await adminSupabase
               .from("habits")
               .select("*", { count: "exact", head: true })
@@ -74,15 +67,14 @@ const Admin = () => {
               console.error(`Error fetching habits for user ${user.id}:`, habitsError);
             }
             
-            // Determine if user is active (logged in within last 30 days)
-            const lastSignIn = user.last_sign_in_at || user.created_at;
-            const isActive = new Date(lastSignIn) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-            
             return {
               id: user.id,
               name: profile?.full_name || "Unnamed User",
               email: user.email || `User ${user.id.substring(0, 8)}`,
-              status: isActive ? "active" as const : "inactive" as const,
+              status: user.last_sign_in_at && 
+                new Date(user.last_sign_in_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) 
+                ? "active" as const 
+                : "inactive" as const,
               joinDate: new Date(user.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
@@ -93,7 +85,6 @@ const Admin = () => {
           })
         );
         
-        console.log("Enhanced users:", enhancedUsers.length);
         return enhancedUsers;
       } catch (error) {
         console.error("Error in admin users query:", error);
@@ -104,12 +95,10 @@ const Admin = () => {
     refetchOnWindowFocus: true
   });
 
-  // Fetch statistics from Supabase also using admin client
-  const { data: stats = { totalUsers: 0, activeUsers: 0, totalHabits: 0, totalCompletions: 0 }, isLoading: isLoadingStats } = useQuery({
+  const { data: stats = { totalUsers: 0, activeUsers: 0, totalHabits: 0, totalCompletions: 0 }, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
     queryKey: ["adminStats"],
     queryFn: async () => {
       try {
-        // Count total users
         const { data: authData, error: authError } = await adminSupabase.auth.admin.listUsers();
         const totalUsers = authData?.users?.length || 0;
         
@@ -117,16 +106,14 @@ const Admin = () => {
           console.error("Error counting users:", authError);
         }
         
-        // Count active users (signed in in the last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
-        const activeUsers = authData?.users?.filter(user => {
-          const lastSignIn = user.last_sign_in_at || user.created_at;
-          return new Date(lastSignIn) > thirtyDaysAgo;
-        }).length || 0;
-        
-        // Count total habits
+          
+        // Filter users who signed in within the last 30 days
+          const activeUsers = authData?.users?.filter((user: { last_sign_in_at?: string | null }) => {
+            return user.last_sign_in_at && new Date(user.last_sign_in_at) > thirtyDaysAgo;
+          }).length || 0;   
+          
         const { count: totalHabits, error: habitsError } = await adminSupabase
           .from("habits")
           .select("*", { count: "exact", head: true });
@@ -135,7 +122,6 @@ const Admin = () => {
           console.error("Error counting habits:", habitsError);
         }
         
-        // Count total completions
         const { count: totalCompletions, error: completionsError } = await adminSupabase
           .from("habit_logs")
           .select("*", { count: "exact", head: true });
@@ -162,7 +148,6 @@ const Admin = () => {
     }
   });
 
-  // Fetch achievements using admin client
   const { data: achievements = [], isLoading: isLoadingAchievements, refetch: refetchAchievements } = useQuery({
     queryKey: ["adminAchievements"],
     queryFn: async () => {

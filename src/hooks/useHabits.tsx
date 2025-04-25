@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/providers/AuthProvider";
-import { startOfWeek, format, addDays, isSameDay } from "date-fns";
+import { startOfWeek, format, addDays, isSameDay, subDays, isYesterday } from "date-fns";
 
 export type Habit = {
   id: string;
@@ -37,6 +37,7 @@ export const useHabits = () => {
       
       // Get today's date in ISO format (YYYY-MM-DD)
       const today = format(new Date(), 'yyyy-MM-dd');
+      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
       
       // Fetch completion logs for today
       const { data: logsData, error: logsError } = await supabase
@@ -47,31 +48,76 @@ export const useHabits = () => {
       
       if (logsError) throw logsError;
       
-      // For streak calculation, get completion logs for the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { data: streakData, error: streakError } = await supabase
+      // Fetch logs for calculation of streaks
+      const { data: allLogsData, error: allLogsError } = await supabase
         .from("habit_logs")
         .select("*")
         .eq("user_id", user.id)
-        .gte("completed_date", format(thirtyDaysAgo, 'yyyy-MM-dd'));
+        .order("completed_date", { ascending: false });
       
-      if (streakError) throw streakError;
+      if (allLogsError) throw allLogsError;
       
       // Transform habits data
       const transformedHabits = habitsData.map(habit => {
         // Check if completed today
         const completedToday = logsData.some(log => log.habit_id === habit.id);
         
-        // Calculate streak (simplified version)
-        const habitLogs = streakData.filter(log => log.habit_id === habit.id);
+        // Calculate streak based on consecutive days
+        const habitLogs = allLogsData.filter(log => log.habit_id === habit.id);
+        
+        // Sort logs by date (newest first)
         const sortedLogs = habitLogs.sort((a, b) => 
-          new Date(a.completed_date).getTime() - new Date(b.completed_date).getTime()
+          new Date(b.completed_date).getTime() - new Date(a.completed_date).getTime()
         );
         
-        // Simple calculation - just count all logs in the last 30 days
-        const streak = sortedLogs.length;
+        // Calculate streak - consecutive days without missing a day
+        let streak = 0;
+        let currentDate = new Date();
+        
+        // If not completed today, check if completed yesterday
+        // If not completed yesterday, streak breaks unless it's a new day
+        if (!completedToday) {
+          const completedYesterday = sortedLogs.some(log => 
+            log.completed_date === yesterday
+          );
+          
+          if (!completedYesterday) {
+            // Streak is broken only if it's not a new habit created today
+            if (format(new Date(habit.created_at), 'yyyy-MM-dd') !== today) {
+              streak = 0;
+            }
+          } else {
+            // If completed yesterday but not today, count the streak up to yesterday
+            streak = 1; // Start with yesterday
+            
+            // Continue checking previous days
+            for (let i = 1; i < sortedLogs.length; i++) {
+              const expectedDate = format(subDays(new Date(), i + 1), 'yyyy-MM-dd');
+              const hasExpectedDate = sortedLogs.some(log => log.completed_date === expectedDate);
+              
+              if (hasExpectedDate) {
+                streak++;
+              } else {
+                break;
+              }
+            }
+          }
+        } else {
+          // Completed today, start streak at 1
+          streak = 1;
+          
+          // Check for consecutive previous days
+          for (let i = 1; i < 365; i++) {
+            const expectedDate = format(subDays(currentDate, i), 'yyyy-MM-dd');
+            const hasExpectedDate = sortedLogs.some(log => log.completed_date === expectedDate);
+            
+            if (hasExpectedDate) {
+              streak++;
+            } else {
+              break;
+            }
+          }
+        }
         
         // Calculate progress (based on streaks)
         const progress = Math.min(100, streak * 10);
