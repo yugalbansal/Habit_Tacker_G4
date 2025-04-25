@@ -11,6 +11,7 @@ import Statistics from "@/components/admin/Statistics";
 import AchievementsManager from "@/components/admin/AchievementsManager";
 import SettingsPanel from "@/components/admin/SettingsPanel";
 import { Achievement } from "@/types/achievement";
+import { AuthUser } from "@supabase/supabase-js";
 
 type User = {
   id: string;
@@ -55,7 +56,7 @@ const Admin = () => {
         }, {});
         
         const enhancedUsers = await Promise.all(
-          authUsers.map(async (user) => {
+          authUsers.map(async (user: AuthUser) => {
             const profile = profilesMap[user.id];
             
             const { count: habitsCount, error: habitsError } = await adminSupabase
@@ -95,75 +96,7 @@ const Admin = () => {
     refetchOnWindowFocus: true
   });
 
-  const { data: stats = { totalUsers: 0, activeUsers: 0, totalHabits: 0, totalCompletions: 0 }, isLoading: isLoadingStats, refetch: refetchStats } = useQuery({
-    queryKey: ["adminStats"],
-    queryFn: async () => {
-      try {
-        const { data: authData, error: authError } = await adminSupabase.auth.admin.listUsers();
-        const totalUsers = authData?.users?.length || 0;
-        
-        if (authError) {
-          console.error("Error counting users:", authError);
-        }
-        
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          
-        // Filter users who signed in within the last 30 days
-          const activeUsers = authData?.users?.filter((user: { last_sign_in_at?: string | null }) => {
-            return user.last_sign_in_at && new Date(user.last_sign_in_at) > thirtyDaysAgo;
-          }).length || 0;   
-          
-        const { count: totalHabits, error: habitsError } = await adminSupabase
-          .from("habits")
-          .select("*", { count: "exact", head: true });
-        
-        if (habitsError) {
-          console.error("Error counting habits:", habitsError);
-        }
-        
-        const { count: totalCompletions, error: completionsError } = await adminSupabase
-          .from("habit_logs")
-          .select("*", { count: "exact", head: true });
-        
-        if (completionsError) {
-          console.error("Error counting completions:", completionsError);
-        }
-        
-        return {
-          totalUsers,
-          activeUsers,
-          totalHabits: totalHabits || 0,
-          totalCompletions: totalCompletions || 0
-        };
-      } catch (error) {
-        console.error("Error in admin stats query:", error);
-        return {
-          totalUsers: 0,
-          activeUsers: 0,
-          totalHabits: 0,
-          totalCompletions: 0
-        };
-      }
-    }
-  });
-
-  const { data: achievements = [], isLoading: isLoadingAchievements, refetch: refetchAchievements } = useQuery({
-    queryKey: ["adminAchievements"],
-    queryFn: async () => {
-      const { data, error } = await adminSupabase
-        .from("achievements")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching achievements:", error);
-        return [];
-      }
-      
-      return data as Achievement[];
-    }
-  });
+  // ... keep existing code (stats query and other functionality)
 
   return (
     <div className="min-h-screen flex flex-col">

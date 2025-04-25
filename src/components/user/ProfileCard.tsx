@@ -66,22 +66,23 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
 
       // Upload new avatar if selected
       if (avatarFile) {
-        // Upload to avatars bucket
         const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const fileName = `${user.id}/${Math.random().toString(36).substring(2)}.${fileExt}`;
         
         // First, remove old avatar if it exists and contains the user ID
-        // This prevents storage bloat with unused avatars
         if (profile.avatar_url) {
-          const oldAvatarPath = profile.avatar_url.split('/').pop();
-          if (oldAvatarPath && oldAvatarPath.startsWith(user.id)) {
-            const { error: removeError } = await supabase.storage
-              .from('avatars')
-              .remove([oldAvatarPath]);
+          try {
+            const oldAvatarPath = profile.avatar_url.split('/').pop();
+            const oldFolder = profile.avatar_url.split('/').slice(-2)[0];
             
-            if (removeError) {
-              console.warn("Error removing old avatar:", removeError);
+            if (oldFolder === user.id && oldAvatarPath) {
+              await supabase.storage
+                .from('avatars')
+                .remove([`${user.id}/${oldAvatarPath}`]);
             }
+          } catch (removeError) {
+            console.warn("Error removing old avatar:", removeError);
+            // Continue even if removal fails
           }
         }
         
