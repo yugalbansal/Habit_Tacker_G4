@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Achievement } from "@/types/achievement";
 import AchievementsList from "./AchievementsList";
@@ -26,6 +25,7 @@ const AchievementsManager = ({
             <AchievementsList 
               achievements={achievements} 
               isLoading={isLoading} 
+              refetchAchievements={refetchAchievements}
             />
           </CardContent>
         </Card>

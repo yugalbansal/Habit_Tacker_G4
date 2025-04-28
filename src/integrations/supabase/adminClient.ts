@@ -13,6 +13,7 @@
 // export const adminSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 
+
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { SUPABASE_CONFIG } from '@/config/supabase';
