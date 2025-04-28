@@ -59,8 +59,8 @@ const Features = () => {
             </div>
             <div className="bg-gradient-to-br from-primary/20 to-accent/20 p-8 lg:p-12 flex items-center justify-center">
               {/* This would typically be a screenshot or illustration */}
-              <div className="glass-card rounded-lg w-full max-w-md aspect-[16/9] flex items-center justify-center border border-white/10">
-                <p className="text-muted-foreground text-sm"><img src="src\components\ui\Dashboard.png" alt="" /></p>
+              <div className="glass-card rounded-lg w-full max-w-md aspect-[4/3] flex items-center justify-center border border-white/10">
+                <p className="text-muted-foreground text-sm">Dashboard Preview</p>
               </div>
             </div>
           </div>

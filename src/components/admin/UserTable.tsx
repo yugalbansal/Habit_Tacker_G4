@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { adminSupabase } from "@/integrations/supabase/adminClient";
 import { toast } from "@/components/ui/use-toast";
 
-type User = {
+export type User = {
   id: string;
   name: string;
   email: string;
@@ -16,14 +16,26 @@ type User = {
   habitsCount: number;
 };
 
+type AdminUser = {
+  id: string;
+  email: string;
+  lastSignIn: string | null;
+  habits: number;
+  completions: number;
+  joinDate: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+};
+
 type UserTableProps = {
-  users: User[];
+  users: AdminUser[];
+  isLoading?: boolean;
   refetchUsers?: () => void;
 };
 
-const UserTable = ({ users: initialUsers, refetchUsers }: UserTableProps) => {
+const UserTable = ({ users: initialUsers, refetchUsers, isLoading }: UserTableProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<AdminUser[]>(initialUsers);
 
   // Update local state when initialUsers changes
   useEffect(() => {
@@ -33,7 +45,7 @@ const UserTable = ({ users: initialUsers, refetchUsers }: UserTableProps) => {
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.fullName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -98,24 +110,28 @@ const UserTable = ({ users: initialUsers, refetchUsers }: UserTableProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  Loading users...
+                </TableCell>
+              </TableRow>
+            ) : filteredUsers.length > 0 ? (
               filteredUsers.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell className="font-medium">{user.fullName || 'Unnamed User'}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
-                        user.status === "active"
-                          ? "bg-primary/20 text-primary"
-                          : "bg-muted text-muted-foreground"
+                        user.lastSignIn ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {user.status}
+                      {user.lastSignIn ? "active" : "inactive"}
                     </span>
                   </TableCell>
                   <TableCell>{user.joinDate}</TableCell>
-                  <TableCell>{user.habitsCount}</TableCell>
+                  <TableCell>{user.habits}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <Edit className="h-4 w-4" />

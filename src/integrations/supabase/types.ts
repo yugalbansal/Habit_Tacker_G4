@@ -11,6 +11,8 @@ export type Database = {
     Tables: {
       achievements: {
         Row: {
+          condition_type: string
+          condition_value: number | null
           created_at: string
           description: string
           icon: string
@@ -19,6 +21,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          condition_type?: string
+          condition_value?: number | null
           created_at?: string
           description: string
           icon?: string
@@ -27,6 +31,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          condition_type?: string
+          condition_value?: number | null
           created_at?: string
           description?: string
           icon?: string
@@ -202,6 +208,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_and_award_achievements: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       has_role: {
         Args: { user_id: string; role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean

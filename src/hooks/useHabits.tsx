@@ -72,7 +72,6 @@ export const useHabits = () => {
         
         // Calculate streak - consecutive days without missing a day
         let streak = 0;
-        let currentDate = new Date();
         
         // If not completed today, check if completed yesterday
         // If not completed yesterday, streak breaks unless it's a new day
@@ -108,7 +107,7 @@ export const useHabits = () => {
           
           // Check for consecutive previous days
           for (let i = 1; i < 365; i++) {
-            const expectedDate = format(subDays(currentDate, i), 'yyyy-MM-dd');
+            const expectedDate = format(subDays(new Date(), i), 'yyyy-MM-dd');
             const hasExpectedDate = sortedLogs.some(log => log.completed_date === expectedDate);
             
             if (hasExpectedDate) {
@@ -151,7 +150,8 @@ export const useHabits = () => {
     
     return weekDays.map((name, i) => {
       const date = addDays(start, i);
-      const completed = habits.filter(h => h.completedToday && isSameDay(new Date(), date)).length;
+      const isToday = isSameDay(date, new Date());
+      const completed = isToday ? habits.filter(h => h.completedToday).length : 0;
       
       return {
         name,

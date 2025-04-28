@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,12 +60,13 @@ const HabitCard = ({
     
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
+      const userId = (await supabase.auth.getUser()).data.user?.id;
       
       if (!isCompleted) {
         // Mark as completed
         const { error } = await supabase.from('habit_logs').insert({
           habit_id: id,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: userId,
           completed_date: today
         });
         

@@ -65,8 +65,9 @@ export const useAchievements = () => {
 
       // Show toast for each new achievement
       newAchievements?.forEach((achievement) => {
-        // Fix: Use the correct toast structure for sonner
-        toast(`🏆 ${achievement.achievement.title} - ${achievement.achievement.description}`, {
+        toast({
+          title: `🏆 ${achievement.achievement.title}`,
+          description: achievement.achievement.description,
           icon: <Trophy className="h-4 w-4" />,
           duration: 5000
         });
