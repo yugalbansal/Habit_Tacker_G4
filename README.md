@@ -47,9 +47,16 @@
 ## About The Project
 HabitTracker is a web application designed to help users track their daily habits, build consistency, and achieve personal goals. The platform allows users to add, update, delete, and visualize their habit progress through a clean and responsive interface. Built with a modern tech stack, HabitTracker focuses on usability, real-time updates, and insightful data representation.
 
+## 👥 Collaborators
+
+- **[yugalbansal](https://github.com/yugalbansal)** – Project Manager  
+- **[Arshia1505](https://github.com/Arshia1505)** – UI/UX & Frontend  
+- **[angel1735](https://github.com/angel1735)** – Tester, Bug Finder & Designer
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-**iTrack HabitTracker** is a comprehensive habit tracking solution built with Firebase and Next.js. It helps users build better habits by offering:
+**iTracker HabitTracker** is a comprehensive habit tracking solution built with Firebase and Next.js. It helps users build better habits by offering:
 
 - Visual habit progress and analytics
 - Daily reminders and motivational achievements
@@ -90,6 +97,7 @@ To get a local copy up and running follow these steps.
 ### Installation
 
 ```sh
-git clone https://github.com/github_username/itrack-habittracker.git
-cd itrack-habittracker
+git clone https://github.com/yugalbansal/Habit_Tacker_G4.git
+cd Habit_Tacker_G4
 npm install
+npm run dev
