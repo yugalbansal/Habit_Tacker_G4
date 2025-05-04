@@ -232,13 +232,4 @@ const ProfileCard = ({ profile }: ProfileCardProps) => {
             onClick={handleSave}
             disabled={isLoading}
           >
-            <Save className="mr-2 h-4 w-4" /> 
-            {isLoading ? "Saving..." : "Save Changes"}
-          </Button>
-        </CardFooter>
-      )}
-    </Card>
-  );
-};
-
-export default ProfileCard;
+ 

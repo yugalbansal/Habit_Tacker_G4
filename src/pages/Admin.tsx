@@ -172,22 +172,7 @@ const Admin = () => {
     enabled: isAdmin,
   });
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4">Unauthorized</h1>
-            <p className="text-gray-600">
-              You do not have permission to access this page.
-            </p>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  
 
   return (
     <div className="min-h-screen flex flex-col">
